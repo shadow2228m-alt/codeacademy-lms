@@ -54,8 +54,8 @@ function CourseCard({ course }:{course:any}){
       await createLesson({
         course_id: course.id,
         title: ltitle,
-        video_url: lvideo || null,
-        content_md: lcontent || null,
+        video_url: lvideo || undefined,
+        content_md: lcontent || undefined,
         order_index: (course.lessons?.length || 0)
       })
       location.reload()
