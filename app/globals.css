@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -11,7 +13,7 @@
 html, body {
   background: var(--ca-bg);
   color: #fff;
-  font-family: 'Cairo', 'Tajima', system-ui, sans-serif;
+  font-family: 'Cairo', system-ui, sans-serif;
 }
 
 * { scrollbar-width: thin; scrollbar-color: #0ff #0a0a0a; }
@@ -20,10 +22,82 @@ html, body {
 
 .neon-text { text-shadow: 0 0 18px rgba(0,255,255,0.45); }
 .neon-border { box-shadow: 0 0 28px rgba(0,255,255,0.12), inset 0 0 18px rgba(0,255,255,0.04); }
+
 .crimson-flash { animation: crimsonPulse 0.9s infinite alternate; }
 @keyframes crimsonPulse {
   from { box-shadow: 0 0 8px rgba(239,68,68,0.3); border-color: #ef4444; }
   to { box-shadow: 0 0 28px rgba(239,68,68,0.65); border-color: #f87171; }
 }
+
 .rtl { direction: rtl; }
 .ltr { direction: ltr; }
+
+/* XP Toast animation */
+@keyframes xpFloat {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  70% { opacity: 1; transform: translateY(-60px) scale(1.1); }
+  100% { opacity: 0; transform: translateY(-90px) scale(0.9); }
+}
+.xp-toast { animation: xpFloat 2s ease-out forwards; }
+
+/* Landing page 3D floating shapes */
+@keyframes float3d {
+  0%, 100% { transform: translateY(0px) rotateX(0deg) rotateY(0deg); }
+  33% { transform: translateY(-20px) rotateX(8deg) rotateY(12deg); }
+  66% { transform: translateY(-10px) rotateX(-5deg) rotateY(-8deg); }
+}
+@keyframes float3dReverse {
+  0%, 100% { transform: translateY(0px) rotateX(0deg) rotateY(0deg); }
+  33% { transform: translateY(-14px) rotateX(-8deg) rotateY(-12deg); }
+  66% { transform: translateY(-24px) rotateX(5deg) rotateY(8deg); }
+}
+.float-3d { animation: float3d 6s ease-in-out infinite; transform-style: preserve-3d; }
+.float-3d-reverse { animation: float3dReverse 8s ease-in-out infinite; transform-style: preserve-3d; }
+.float-3d-slow { animation: float3d 10s ease-in-out infinite 1s; transform-style: preserve-3d; }
+
+/* Gradient shimmer */
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.shimmer-text {
+  background: linear-gradient(90deg, #00eaff, #d946ef, #00eaff);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 4s linear infinite;
+}
+
+/* Glow pulse for hero */
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 40px rgba(0,234,255,0.2), 0 0 80px rgba(217,70,239,0.1); }
+  50% { box-shadow: 0 0 60px rgba(0,234,255,0.35), 0 0 120px rgba(217,70,239,0.2); }
+}
+.glow-pulse { animation: glowPulse 3s ease-in-out infinite; }
+
+/* Tier badge animations */
+@keyframes tierShine {
+  0% { filter: brightness(1); }
+  50% { filter: brightness(1.3) saturate(1.4); }
+  100% { filter: brightness(1); }
+}
+.tier-badge { animation: tierShine 2s ease-in-out infinite; }
+
+/* Rank-up confetti overlay */
+.rank-up-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(4px);
+}
+
+/* Leaderboard row transition */
+.lb-row { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+
+/* Reduced motion override */
+@media (prefers-reduced-motion: reduce) {
+  .float-3d, .float-3d-reverse, .float-3d-slow,
+  .shimmer-text, .glow-pulse, .tier-badge, .xp-toast {
+    animation: none !important;
+  }
+}

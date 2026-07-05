@@ -86,13 +86,13 @@ function EditQuizRow({ quiz, onCancel, onSaved }:{
   return (
     <div className="rounded-2xl border border-cyan-500/30 bg-zinc-950/70 p-4">
       <div className="grid md:grid-cols-3 gap-2 mb-3">
-        <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Title" className="md:col-span-3 bg-black/40 border border-zinc-800 rounded-lg px-3 py-2 text-sm"/>
+        <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="العنوان" className="md:col-span-3 bg-black/40 border border-zinc-800 rounded-lg px-3 py-2 text-sm"/>
         <div>
-          <label className="text-xs text-zinc-400">Duration (min)</label>
+          <label className="text-xs text-zinc-400">المدة (بالدقائق)</label>
           <input type="number" value={duration} onChange={e=>setDuration(parseInt(e.target.value||'0'))} className="w-full bg-black/40 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1"/>
         </div>
         <div>
-          <label className="text-xs text-zinc-400">Total Points</label>
+          <label className="text-xs text-zinc-400">الدرجة الكلية</label>
           <input type="number" value={totalScore} onChange={e=>setTotalScore(parseInt(e.target.value||'0'))} className="w-full bg-black/40 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1"/>
         </div>
       </div>

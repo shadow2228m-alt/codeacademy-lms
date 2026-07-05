@@ -24,9 +24,9 @@ export default async function ProfilePage(){
           <div className="text-center font-bold text-lg">{stats?.full_name}</div>
           <div className="text-center text-zinc-400 text-sm">{user.email}</div>
           <div className="mt-4 text-sm space-y-2 text-zinc-300">
-            <div className="flex justify-between"><span>XP</span><b className="text-cyan-300">{stats?.computed_xp}</b></div>
-            <div className="flex justify-between"><span>Passed</span><b>{stats?.exams_passed}</b></div>
-            <div className="flex justify-between"><span>Streak</span><b className="text-fuchsia-300">🔥 {stats?.active_daily_streak}</b></div>
+            <div className="flex justify-between"><span>النقاط (XP)</span><b className="text-cyan-300">{stats?.computed_xp?.toLocaleString('ar-EG')}</b></div>
+            <div className="flex justify-between"><span>الامتحانات الناجحة</span><b>{stats?.exams_passed}</b></div>
+            <div className="flex justify-between"><span>السلسلة اليومية</span><b className="text-fuchsia-300">🔥 {stats?.active_daily_streak}</b></div>
           </div>
           <ProfileClient initialName={stats?.full_name || ''} userId={user.id} />
         </div>
@@ -36,12 +36,14 @@ export default async function ProfilePage(){
             {(attempts ?? []).map((a:any)=>(
               <div key={a.id} className="flex justify-between items-center bg-black/30 border border-zinc-900 rounded-xl px-4 py-3 text-sm">
                 <div>
-                  <div className="font-semibold">{a.quizzes?.title || 'Quiz'}</div>
+                  <div className="font-semibold">{a.quizzes?.title || 'اختبار'}</div>
                   <div className="text-xs text-zinc-500">{new Date(a.started_at).toLocaleString('ar-EG')}</div>
                 </div>
                 <div className="text-left">
-                  <div className={`font-bold ${a.status==='graded'?'text-emerald-300':'text-amber-300'}`}>{a.score_achieved} pts</div>
-                  <div className="text-[11px] text-zinc-500">{a.status}</div>
+                  <div className={`font-bold ${a.status==='graded'?'text-emerald-300':'text-amber-300'}`}>{a.score_achieved} درجات</div>
+                  <div className="text-[11px] text-zinc-500">
+                    {a.status === 'graded' ? 'تم التصحيح ✅' : a.status === 'submitted' ? 'قيد التصحيح ⏳' : 'قيد التقدم 📝'}
+                  </div>
                 </div>
               </div>
             ))}

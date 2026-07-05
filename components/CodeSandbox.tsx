@@ -18,8 +18,8 @@ export default function CodeSandbox({ value, onChange, onRun }:{
   return (
     <div className="border border-zinc-800 rounded-2xl overflow-hidden bg-[#0b0f1a]" dir="ltr">
       <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800 bg-black/30 text-xs text-zinc-400">
-        <span>Python IDE • CodeAcademy Sandbox <span className="text-amber-400/80">(معاينة تجريبية)</span></span>
-        <button onClick={()=>onRun?.(value)} className="px-3 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Run ▶</button>
+        <span>بيئة تطوير Python • ساحة أكاديمية الكود <span className="text-amber-400/80">(معاينة تجريبية)</span></span>
+        <button onClick={()=>onRun?.(value)} className="px-3 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">تشغيل الكود ▶</button>
       </div>
       <div className="flex">
         <pre className="select-none text-right px-3 py-3 text-[12px] text-zinc-600 bg-black/20 leading-6" style={{fontFamily:'ui-monospace, SFMono-Regular, monospace'}}>
@@ -38,7 +38,7 @@ def solve():
         />
       </div>
       <div className="border-t border-zinc-800 px-4 py-2 text-[11px] text-zinc-500">
-        محاكاة تشغيل تجريبية (ليست بيئة تنفيذ Python فعلية) • auto-format • line numbering enabled
+        محاكاة تشغيل تجريبية (ليست بيئة تنفيذ Python فعلية) • تنسيق تلقائي • ترقيم السطور مفعّل
       </div>
     </div>
   )

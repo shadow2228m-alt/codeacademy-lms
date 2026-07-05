@@ -28,6 +28,7 @@ export async function middleware(request: NextRequest) {
   const isStudentPath = pathname.startsWith('/student')
   const isAuthPath = pathname.startsWith('/auth')
 
+  // لوجد مستخدم غير مسجل يحاول الوصول لمسارات محمية → صفحة تسجيل الدخول العادية
   if ((isAdminPath || isStudentPath) && !user && !isAuthPath) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
@@ -35,14 +36,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // role guard: redirect non-admins away from /admin routes.
-  // RLS + requireAdmin() in server actions remain the hard enforcement layer;
-  // this just prevents unauthorized users from viewing admin pages at all.
+  // حماية مسارات /admin: الطلاب أو غير المعروفين يُوجَّهون لـ student/dashboard أو 404
+  // IMPORTANT: لا يُوجَّه أحد نحو /mgmt-9f3c — ذلك سيكشف وجود الرابط السري
   if (user && isAdminPath) {
     const role = (user.app_metadata as any)?.role || user.user_metadata?.role
     if (role !== 'admin') {
+      // الطالب المسجل → لوحة الطالب (مسار غير مريب)
       const url = request.nextUrl.clone()
       url.pathname = '/student/dashboard'
+      url.search = ''
       return NextResponse.redirect(url)
     }
   }

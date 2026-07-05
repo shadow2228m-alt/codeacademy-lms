@@ -44,8 +44,8 @@ export async function upsertStudentAnswer(input: {
     .eq('student_id', user.id)
     .single()
 
-  if (!attempt) throw new Error('Attempt not found')
-  if (attempt.status !== 'in_progress') throw new Error('Attempt closed')
+  if (!attempt) throw new Error('المحاولة غير موجودة')
+  if (attempt.status !== 'in_progress') throw new Error('المحاولة مغلقة بالفعل')
 
   // Server-side timer tampering protection
   const started = new Date(attempt.started_at).getTime()
@@ -78,7 +78,7 @@ export async function submitAndGradeQuiz(attempt_id: string) {
     .eq('id', attempt_id)
     .eq('student_id', user.id)
     .single()
-  if (aErr || !attempt) throw new Error('Attempt not found')
+  if (aErr || !attempt) throw new Error('المحاولة غير موجودة')
 
   if (attempt.status === 'graded') return attempt
 
@@ -191,7 +191,7 @@ export async function submitAndGradeQuiz(attempt_id: string) {
 }
 
 export async function getQuizWithQuestions(quizId: string) {
-  const supabase = await createClient()
+  const { supabase } = await requireStudent()
   const { data: quiz } = await supabase.from('quizzes').select('*').eq('id', quizId).single()
   const { data: questions } = await supabase.from('questions').select('*').eq('quiz_id', quizId).order('order_index')
 
@@ -212,4 +212,22 @@ export async function getMyAttempt(quizId: string) {
     .limit(1)
     .maybeSingle()
   return data
+}
+
+// للاستخدام من ExamArena: جلب XP الحالي للمقارنة قبل وبعد التسليم
+export async function getMyStatsAction() {
+  try {
+    const { supabase, user } = await requireStudent()
+    const { data } = await supabase
+      .from('student_profiles')
+      .select('exams_passed, accumulated_quiz_scores, active_daily_streak')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    if (!data) return null
+    const computed_xp =
+      (data.exams_passed * 100) + data.accumulated_quiz_scores + (data.active_daily_streak * 50)
+    return { computed_xp }
+  } catch {
+    return null
+  }
 }

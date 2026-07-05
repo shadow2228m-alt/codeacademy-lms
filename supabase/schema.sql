@@ -372,3 +372,43 @@ INSERT INTO public.lessons (course_id, title, order_index, video_url, content_md
 ('00000000-0000-0000-0000-000000000102', 'OOP Deep Dive', 0, 'https://player.codeacademy.test/oop', '## Classes')
 ON CONFLICT DO NOTHING;
 
+-- ====== CodeAcademy LMS Phase 3 — Admin Messages ======
+-- تاريخ التحديث: 2026-07-05
+-- جدول رسائل الإدارة للطلاب (دائمة حتى يُغلقها الطالب)
+
+CREATE TABLE IF NOT EXISTS public.admin_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  title TEXT NOT NULL DEFAULT 'رسالة من الإدارة',
+  message TEXT NOT NULL,
+  dismissed_at TIMESTAMPTZ DEFAULT NULL, -- NULL = لم يُقرأ، TIMESTAMPTZ = تم الإغلاق
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.admin_messages ENABLE ROW LEVEL SECURITY;
+
+-- المشرف يملك كل الصلاحيات
+DROP POLICY IF EXISTS "admin_messages_admin_all" ON public.admin_messages;
+CREATE POLICY "admin_messages_admin_all" ON public.admin_messages
+  FOR ALL
+  USING (auth.jwt() ->> 'role' = 'admin')
+  WITH CHECK (auth.jwt() ->> 'role' = 'admin');
+
+-- الطالب يقرأ رسائله الخاصة فقط
+DROP POLICY IF EXISTS "admin_messages_student_select" ON public.admin_messages;
+CREATE POLICY "admin_messages_student_select" ON public.admin_messages
+  FOR SELECT
+  USING (auth.uid() = student_id);
+
+-- الطالب يُغلق رسائله الخاصة فقط (تحديث dismissed_at)
+DROP POLICY IF EXISTS "admin_messages_student_dismiss" ON public.admin_messages;
+CREATE POLICY "admin_messages_student_dismiss" ON public.admin_messages
+  FOR UPDATE
+  USING (auth.uid() = student_id)
+  WITH CHECK (auth.uid() = student_id);
+
+-- فهرس لتسريع جلب الرسائل غير المُغلقة
+CREATE INDEX IF NOT EXISTS idx_admin_messages_student_undismissed
+  ON public.admin_messages(student_id)
+  WHERE dismissed_at IS NULL;
+

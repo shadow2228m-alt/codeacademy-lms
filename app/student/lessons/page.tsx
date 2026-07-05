@@ -28,7 +28,7 @@ export default async function LessonsPage({ searchParams }:{ searchParams?: Prom
     )
   }
   const course = (courses ?? []).find((c:any)=>c.slug===courseSlug)
-  if (!course) return <div className="p-10">Course not found</div>
+  if (!course) return <div className="p-10 text-center text-zinc-400">الكورس غير موجود.</div>
   const { data: lessons } = await supabase.from('lessons').select('*').eq('course_id', course.id).order('order_index')
   const activeLesson = lessonId ? (lessons ?? []).find((l:any)=>l.id===lessonId) : (lessons ?? [])[0]
   return (
@@ -52,7 +52,7 @@ export default async function LessonsPage({ searchParams }:{ searchParams?: Prom
         <section className="col-span-12 xl:col-span-8 space-y-5">
           <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4 aspect-video flex items-center justify-center">
             <div className="text-center">
-              <div className="text-cyan-300">{activeLesson?.title || 'Lesson'}</div>
+              <div className="text-cyan-300">{activeLesson?.title || 'الدرس'}</div>
               <div className="text-xs text-zinc-500 mt-2">{activeLesson?.video_url || ''}</div>
             </div>
           </div>

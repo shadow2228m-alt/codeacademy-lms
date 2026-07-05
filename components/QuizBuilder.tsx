@@ -55,62 +55,62 @@ export default function QuizBuilder() {
 
   return (
     <div className="grid grid-cols-12 gap-6" dir="rtl">
-      {/* Bento-grid control panel */}
+      {/* لوحة التحكم Bento */}
       <section className="col-span-12 lg:col-span-4 space-y-4">
         <div className="rounded-2xl border border-cyan-400/20 bg-gradient-to-br from-zinc-900/80 to-slate-900/70 p-5 shadow-[0_0_35px_rgba(0,255,255,0.06)]">
           <h2 className="text-cyan-300 font-bold mb-4">لوحة التحكم Bento</h2>
-          <label className="block text-sm text-zinc-300 mb-1">Quiz Title</label>
+          <label className="block text-sm text-zinc-300 mb-1">عنوان الاختبار</label>
           <input value={title} onChange={e=>setTitle(e.target.value)}
             className="w-full bg-black/40 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-cyan-400" />
           <div className="grid grid-cols-2 gap-3 mt-4">
             <div>
-              <label className="block text-sm text-zinc-300 mb-1">Duration (min)</label>
+              <label className="block text-sm text-zinc-300 mb-1">المدة (بالدقائق)</label>
               <input type="number" value={duration} onChange={e=>setDuration(parseInt(e.target.value||'0'))}
                 className="w-full bg-black/40 border border-zinc-700 rounded-xl px-3 py-3" />
             </div>
             <div>
-              <label className="block text-sm text-zinc-300 mb-1">Total Points</label>
+              <label className="block text-sm text-zinc-300 mb-1">الدرجة الكلية</label>
               <input type="number" value={totalScore} onChange={e=>setTotalScore(parseInt(e.target.value||'0'))}
                 className="w-full bg-black/40 border border-zinc-700 rounded-xl px-3 py-3" />
             </div>
           </div>
           <div className="flex gap-2 mt-5">
             <button onClick={()=>addQuestion('multiple_choice')}
-              className="flex-1 py-2.5 rounded-xl bg-cyan-500/15 border border-cyan-400/30 hover:bg-cyan-500/25 transition text-cyan-200 text-sm">+ MC سؤال</button>
+              className="flex-1 py-2.5 rounded-xl bg-cyan-500/15 border border-cyan-400/30 hover:bg-cyan-500/25 transition text-cyan-200 text-sm">+ سؤال اختيار من متعدد</button>
             <button onClick={()=>addQuestion('essay_code')}
-              className="flex-1 py-2.5 rounded-xl bg-fuchsia-500/15 border border-fuchsia-400/30 hover:bg-fuchsia-500/25 transition text-fuchsia-200 text-sm">+ Essay Code</button>
+              className="flex-1 py-2.5 rounded-xl bg-fuchsia-500/15 border border-fuchsia-400/30 hover:bg-fuchsia-500/25 transition text-fuchsia-200 text-sm">+ سؤال كود برمجي</button>
           </div>
         </div>
 
         <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/5 p-5">
-          <div className="text-sm text-emerald-300">Dynamic Action Matrix</div>
+          <div className="text-sm text-emerald-300">مصفوفة الإجراءات الديناميكية</div>
           <div className="text-2xl font-extrabold mt-1">{questions.length} سؤال</div>
           <div className="text-xs text-zinc-400 mt-2">
-            MC: {questions.filter(q=>q.q_type==='multiple_choice').length} • Essay: {questions.filter(q=>q.q_type==='essay_code').length}
+            اختيار من متعدد: {questions.filter(q=>q.q_type==='multiple_choice').length} • مقالي برمجي: {questions.filter(q=>q.q_type==='essay_code').length}
           </div>
           <button disabled={isPending} onClick={submit}
-            className="w-full mt-4 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-fuchsia-500 text-black font-bold disabled:opacity-50">
-            {isPending ? 'جارٍ الحفظ الذري...' : 'Create Quiz Transaction'}
+            className="w-full mt-4 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-fuchsia-500 text-black font-bold disabled:opacity-50 hover:opacity-90 transition">
+            {isPending ? 'جارٍ الحفظ الذري...' : 'إنشاء الاختبار وحفظه'}
           </button>
           {msg && <div className="mt-3 text-sm text-amber-300">{msg}</div>}
         </div>
       </section>
 
-      {/* Dynamic Action Matrix Array */}
+      {/* مصفوفة الأسئلة المضافة */}
       <section className="col-span-12 lg:col-span-8 space-y-5">
         {questions.map((q, i) => (
           <div key={i} className="rounded-2xl border border-zinc-800 bg-zinc-950/80 p-5 shadow-inner">
             <div className="flex items-center justify-between mb-3">
               <div className="text-xs">
                 <span className={`px-2 py-1 rounded-full ${q.q_type==='multiple_choice' ? 'bg-cyan-900/40 text-cyan-300' : 'bg-fuchsia-900/40 text-fuchsia-300'}`}>
-                  {q.q_type}
+                  {q.q_type === 'multiple_choice' ? 'اختيار من متعدد' : 'سؤال برمجي'}
                 </span>
                 <span className="mr-3 text-zinc-400">#{i+1}</span>
               </div>
               <div className="flex items-center gap-2">
                 <input type="number" value={q.max_points} onChange={e=>updateQ(i,{max_points: parseInt(e.target.value||'0')})}
                   className="w-20 bg-black/50 border border-zinc-700 rounded-lg px-2 py-1 text-center text-sm" />
-                <span className="text-zinc-500 text-xs">pts</span>
+                <span className="text-zinc-500 text-xs">درجات</span>
                 <button onClick={()=>setQuestions(qs=>qs.filter((_,idx)=>idx!==i))}
                   className="text-red-400 text-xs px-2">حذف</button>
               </div>
@@ -127,7 +127,7 @@ export default function QuizBuilder() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
                 {(['A','B','C','D'] as const).map(opt => (
                   <div key={opt}>
-                    <label className="text-xs text-zinc-400">Choice {opt}</label>
+                    <label className="text-xs text-zinc-400">الخيار {opt === 'A' ? 'أ' : opt === 'B' ? 'ب' : opt === 'C' ? 'ج' : 'د'}</label>
                     <input
                       value={q.options?.[opt] ?? ''}
                       onChange={e=>updateQ(i,{ options: { ...q.options!, [opt]: e.target.value } as any })}
@@ -136,19 +136,19 @@ export default function QuizBuilder() {
                   </div>
                 ))}
                 <div className="md:col-span-2 mt-1">
-                  <label className="text-xs text-zinc-400">correct_option</label>
+                  <label className="text-xs text-zinc-400">الخيار الصحيح</label>
                   <select value={q.correct_option ?? 'A'}
                     onChange={e=>updateQ(i,{correct_option: e.target.value as any})}
                     className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2">
-                    <option>A</option><option>B</option><option>C</option><option>D</option>
+                    <option value="A">أ</option><option value="B">ب</option><option value="C">ج</option><option value="D">د</option>
                   </select>
                 </div>
               </div>
             ) : (
               <div className="mt-4 p-3 rounded-xl bg-fuchsia-950/20 border border-fuchsia-800/30">
-                <div className="text-fuchsia-300 text-sm font-bold mb-2">Essay Code – Evaluation Criteria Metadata</div>
+                <div className="text-fuchsia-300 text-sm font-bold mb-2">سؤال كود مقالي – معايير التقييم والبيانات الوصفية</div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-                  <label className="block">Max chars
+                  <label className="block">الحد الأقصى للحروف
                     <input type="number"
                       value={q.evaluation_meta?.max_chars ?? 2000}
                       onChange={e=>updateQ(i,{ evaluation_meta:{ ...q.evaluation_meta, max_chars: parseInt(e.target.value||'0') }})}
@@ -158,13 +158,13 @@ export default function QuizBuilder() {
                     <input type="checkbox"
                       checked={q.evaluation_meta?.require_for_loop ?? false}
                       onChange={e=>updateQ(i,{ evaluation_meta:{ ...q.evaluation_meta, require_for_loop: e.target.checked }})}/>
-                    require 'for' loop
+                    يتطلب حلقة تكرار 'for'
                   </label>
-                  <label className="block">require_function_name
+                  <label className="block">اسم الدالة المطلوبة
                     <input
                       value={q.evaluation_meta?.require_function_name ?? ''}
                       onChange={e=>updateQ(i,{ evaluation_meta:{ ...q.evaluation_meta, require_function_name: e.target.value || null }})}
-                      placeholder="ex: solve"
+                      placeholder="مثال: solve"
                       className="w-full mt-1 bg-black/40 border border-zinc-700 rounded-lg px-2 py-2"/>
                   </label>
                 </div>

@@ -9,9 +9,9 @@ export async function createQuizTransaction(input: CreateQuizInput) {
   const { supabase } = await requireAdmin()
 
   // strict role validation already done
-  if (!input.title?.trim()) throw new Error('Quiz title required')
-  if (input.duration_minutes < 1) throw new Error('Invalid duration')
-  if (!input.questions?.length) throw new Error('At least 1 question required')
+  if (!input.title?.trim()) throw new Error('عنوان الاختبار مطلوب')
+  if (input.duration_minutes < 1) throw new Error('المدة الزمنية غير صالحة')
+  if (!input.questions?.length) throw new Error('يجب إضافة سؤال واحد على الأقل')
 
   // atomic transaction via supabase rpc style - sequential with rollback guard
   const { data: quiz, error: qErr } = await supabase

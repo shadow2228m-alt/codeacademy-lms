@@ -15,12 +15,12 @@ export default async function AdminQuizzesPage() {
           <div>
             <h1 className="text-3xl font-black tracking-tight"
               style={{ textShadow: '0 0 18px rgba(0,255,255,0.35)' }}>
-              CodeAcademy <span className="text-cyan-400">Quiz Composer</span>
+              أكاديمية الكود <span className="text-cyan-400">منشئ الاختبارات</span>
             </h1>
-            <p className="text-zinc-400 mt-2">محرك بناء الاختبارات الديناميكي — Ultra-Granular</p>
+            <p className="text-zinc-400 mt-2">محرك بناء الاختبارات الديناميكي — فائق الدقة</p>
           </div>
           <div className="text-sm px-4 py-2 rounded-full border border-cyan-500/30 bg-cyan-500/5 text-cyan-300">
-            Role: admin • Next.js 16 • RLS Active
+            الصلاحية: مشرف • بيئة Next.js 16 • حماية RLS نشطة
           </div>
         </header>
 
@@ -35,7 +35,7 @@ export default async function AdminQuizzesPage() {
         </section>
 
         <footer className="mt-16 text-center text-zinc-500 text-xs">
-          CodeAcademy LMS • Phase 2 System Integration • Server Actions Atomic Transaction
+          منصة أكاديمية الكود • تكامل النظام • إجراءات خادم برمجية مؤمنة
         </footer>
       </div>
   )

@@ -53,7 +53,7 @@ export async function deleteLesson(lessonId: string) {
 }
 
 export async function listCoursesFull(){
-  const supabase = await createClient()
+  const { supabase } = await requireAdmin()
   const { data: courses } = await supabase.from('courses').select('*').order('created_at', { ascending:false })
   const { data: lessons } = await supabase.from('lessons').select('*').order('order_index')
   return (courses ?? []).map(c=>({

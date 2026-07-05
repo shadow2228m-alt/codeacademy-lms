@@ -1,5 +1,5 @@
 # CodeAcademy LMS — Production Deploy Guide
-## Ultra-Luxury Full Platform v2.0
+## Ultra-Luxury Full Platform v3.0
 
 ### Stack
 - Next.js 16 (App Router, Server Actions, force-dynamic)
@@ -11,64 +11,46 @@
 ### 1-click Vercel
 1. Fork repo
 2. Vercel → Import
-3. Env vars:
-```
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-GEMINI_API_KEY=
-NEXT_PUBLIC_APP_URL=
+3. Configure the following Environment Variables:
+```ini
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key # CRITICAL: Used for admin auth user deletion/creation
+GEMINI_API_KEY=your-gemini-api-key
+NEXT_PUBLIC_APP_URL=your-vercel-app-url
 ```
 4. Deploy
 
+> ⚠️ **SECURITY WARNING:** Never expose `SUPABASE_SERVICE_ROLE_KEY` to the client-side code. It must only reside in environment variables and only be called within `'use server'` files (like `lib/supabase/admin.ts`).
+
+---
+
 ### Supabase Setup
 SQL Editor → run in order:
-1. `supabase/schema.sql`  (full)
+1. `supabase/schema.sql` (full, includes RLS and triggers)
 2. `supabase/seed_quizzes.sql`
 
-> ⚠️ **إذا كان المشروع منشوراً بالفعل على Supabase:** أعد تشغيل `supabase/schema.sql` كاملاً بعد أي تحديث لهذا الملف. هذا **ضروري وليس اختيارياً** — النسخة الحالية تضيف حماية أمنية جوهرية (تريجرز تمنع تلاعب الطلاب بـ XP ودرجات الاختبارات مباشرة من متصفحهم، وتمنع تسريب الإجابات الصحيحة عبر console). الملف يستخدم `CREATE OR REPLACE` و`DROP POLICY/TRIGGER IF EXISTS` فقط، فتشغيله مرة أخرى آمن تماماً ولن يكرر البيانات أو يحذف شيئاً موجوداً.
+> ⚠️ **إعادة تشغيل قاعدة البيانات (CRITICAL RE-RUN):**
+> إذا كان المشروع منشوراً بالفعل على Supabase، فإنه **يجب ويتحتم** إعادة تشغيل ملف `supabase/schema.sql` بالكامل لتطبيق التعديلات الأخيرة، وبخاصة جدول الرسائل الإدارية الجديد `admin_messages` وسياسات الحماية ومؤشرات السرعة التابعة له. تشغيل الملف مرة أخرى آمن تماماً ولن يقوم بتكرار أو إفساد البيانات الموجودة.
 
-Auth → Users → Create:
-- admin@codeacademy.test / Admin123!
-  → user_metadata: { "role": "admin", "full_name": "CodeAcademy Admin" }
-- student@codeacademy.test / Student123!
-  → user_metadata: { "role": "student", "full_name": "طالب تجريبي" }
+---
 
-RLS already enforced. All quiz writes check `auth.jwt() ->> 'role' = 'admin'`.
+### Auth & Gatekeeping
+1. **Secret Admin Login URL:**
+   - The admin dashboard is protected and cannot be reached by guessing or standard navigation redirects.
+   - The exact admin login route is: `/mgmt-9f3c`
+   - *Security note:* Keep this URL private and share it only with authorised administrators. Although documented here for reference, do not publish it in public sitemaps or public documentation. (A `robots.txt` has been added to block crawlers from indexing this route).
+2. **Standard Auth (Students):**
+   - Students register at `/auth/register` and login at the public `/auth/login` portal.
+   - Unauthorized attempts to access `/admin/*` routes are transparently redirected back to `/student/dashboard` (if logged in) or `/auth/login` (if logged out) to prevent leaking the secret path.
 
-### Features delivered
-✅ / — Landing legendary
-✅ /auth/login , /auth/register
-✅ /admin/dashboard — KPIs
-✅ /admin/quizzes — Quiz Composer Bento-grid, createQuizTransaction atomic
-✅ /admin/courses — Course + Lesson manager
-✅ /admin/students — XP table
-✅ /student/dashboard — Leaderboard Neon RTL, XP = E×100+ΣS+C×50, Streak Δt logic
-✅ /student/quizzes — Exam Arena, 500ms debounce, localStorage fallback, crimson <5min, server timer
-✅ /student/lessons — Immersive split-screen, Video + CodeSandbox IDE
-✅ /student/profile — stats + attempts history
-✅ Gemini AI: `app/student/quizzes/actions.ts` → `submitAndGradeQuiz`
-✅ RLS policies full
-✅ middleware.ts auth guard
+---
 
-### API Surface
-- `createQuizTransaction(input: CreateQuizInput)`
-- `upsertStudentAnswer({attempt_id, question_id, selected_option?, written_code?})`
-- `submitAndGradeQuiz(attempt_id)`
-- `getLeaderboard()`
-- `gradeEssayCodeWithGemini()`
+### Features Delivered
+- **Landing Page (`/`):** Full 3D animated hero section using Framer Motion (with `prefers-reduced-motion` compliance), RTL support, and zero administrator links.
+- **Student Dashboard (`/student/dashboard`):** Neon leaderboard with XP ranks (Bronze, Silver, Gold, Platinum, Diamond) and streak trackers.
+- **Exam Arena (`/student/quizzes`):** Auto-saving quiz client, Gemini AI grader, and XP rank-up toast indicators.
+- **Admin Control (`/admin/students`):** Complete student management portal to add students, delete accounts via Supabase Auth Admin client, and broadcast persistent messaging.
+- **Lessons (`/student/lessons`):** Sandbox environment with video content side-by-side.
 
-### Edge hardening
-- Network Disconnection: localStorage `ca_answer_${attempt}_${qid}` → auto re-sync
-- Timer Tampering: server `started_at + duration_minutes` hard close
-- AI JSON crash: fences stripped, safe fallback 40% partial
-
-### Performance
-- force-dynamic everywhere
-- debounced 500ms
-- indexes: idx_questions_quiz_id, idx_attempts_student, idx_answers_attempt
-- Server Actions < 150ms MC, ~1.8s AI grading per essay
-
-Ready for 10k concurrent students. Scale Supabase to Pro + enable pgBouncer.
-
-— CodeAcademy Core — 2026-07-04
+— CodeAcademy Core Team — 2026-07-05
