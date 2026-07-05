@@ -412,3 +412,59 @@ CREATE INDEX IF NOT EXISTS idx_admin_messages_student_undismissed
   ON public.admin_messages(student_id)
   WHERE dismissed_at IS NULL;
 
+-- ====== CodeAcademy LMS Phase 4 — Profile Customisation & Badge System ======
+-- تاريخ التحديث: 2026-07-05
+
+-- إضافة حقول السيرة الذاتية والاهتمامات لملفات الطلاب
+ALTER TABLE public.student_profiles ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT NULL;
+ALTER TABLE public.student_profiles ADD COLUMN IF NOT EXISTS interests TEXT[] DEFAULT ARRAY[]::TEXT[];
+
+-- جدول تعريفات الشارات
+CREATE TABLE IF NOT EXISTS public.badge_definitions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  description TEXT,
+  emoji TEXT NOT NULL DEFAULT '🏅',
+  color TEXT NOT NULL DEFAULT '#00eaff',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- جدول شارات الطلاب (منحها من المشرف)
+CREATE TABLE IF NOT EXISTS public.student_badges (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  badge_id UUID REFERENCES public.badge_definitions(id) ON DELETE CASCADE NOT NULL,
+  granted_at TIMESTAMPTZ DEFAULT NOW(),
+  granted_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  UNIQUE(student_id, badge_id)
+);
+
+ALTER TABLE public.badge_definitions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.student_badges ENABLE ROW LEVEL SECURITY;
+
+-- سياسات الأمان — badge_definitions
+DROP POLICY IF EXISTS "badge_defs_select_all" ON public.badge_definitions;
+CREATE POLICY "badge_defs_select_all" ON public.badge_definitions FOR SELECT USING (true);
+DROP POLICY IF EXISTS "badge_defs_admin_all" ON public.badge_definitions;
+CREATE POLICY "badge_defs_admin_all" ON public.badge_definitions FOR ALL
+  USING (auth.jwt() ->> 'role' = 'admin') WITH CHECK (auth.jwt() ->> 'role' = 'admin');
+
+-- سياسات الأمان — student_badges
+DROP POLICY IF EXISTS "student_badges_select_all" ON public.student_badges;
+CREATE POLICY "student_badges_select_all" ON public.student_badges FOR SELECT USING (true);
+DROP POLICY IF EXISTS "student_badges_admin_all" ON public.student_badges;
+CREATE POLICY "student_badges_admin_all" ON public.student_badges FOR ALL
+  USING (auth.jwt() ->> 'role' = 'admin') WITH CHECK (auth.jwt() ->> 'role' = 'admin');
+
+-- بيانات أولية — تعريفات الشارات (6 شارات)
+INSERT INTO public.badge_definitions (name, description, emoji, color) VALUES
+  ('Python Pro',        'أتقن أساسيات Python بامتياز',          '🐍', '#3b82f6'),
+  ('Quiz Master',       'اجتاز 10 اختبارات بنجاح',              '🧠', '#a855f7'),
+  ('Streak King',       'حافظ على 7 أيام متتالية من الدراسة',   '🔥', '#f97316'),
+  ('Fast Learner',      'أكمل 5 دروس في يوم واحد',             '⚡', '#eab308'),
+  ('Perfect Score',     'حصل على 100% في اختبار',              '💯', '#22c55e'),
+  ('Consistent Coder',  'استمر في الدراسة لأكثر من 30 يوم',    '👑', '#ec4899')
+ON CONFLICT DO NOTHING;
+
+-- فهرس لتسريع جلب شارات الطلاب
+CREATE INDEX IF NOT EXISTS idx_student_badges_student_id ON public.student_badges(student_id);

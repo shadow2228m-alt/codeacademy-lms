@@ -54,11 +54,31 @@ export interface StudentProfile {
   user_id: string;
   full_name: string;
   avatar_url: string | null;
+  bio: string | null;
+  interests: string[];
   total_xp: number;
   exams_passed: number;
   accumulated_quiz_scores: number;
   active_daily_streak: number;
   last_submission_date: string | null;
+}
+
+export interface BadgeDefinition {
+  id: string;
+  name: string;
+  description: string | null;
+  emoji: string;
+  color: string;
+  created_at: string;
+}
+
+export interface StudentBadge {
+  id: string;
+  student_id: string;
+  badge_id: string;
+  granted_at: string;
+  granted_by: string | null;
+  badge_definitions?: BadgeDefinition;
 }
 
 export interface QuizBuilderQuestionInput {

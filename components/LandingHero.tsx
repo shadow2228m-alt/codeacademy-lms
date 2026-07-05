@@ -1,7 +1,7 @@
 'use client'
-import { motion, useScroll, useTransform, useReducedMotion } from 'framer-motion'
+import { motion, useScroll, useTransform, useReducedMotion, useMotionValue, useSpring, type MotionValue } from 'framer-motion'
 import Link from 'next/link'
-import { useRef } from 'react'
+import { useRef, useCallback } from 'react'
 
 // بيانات ثابتة للأقسام
 const FEATURES = [
@@ -43,8 +43,20 @@ const TIERS = [
   { label: 'ألماس', range: '7,000+', color: 'text-fuchsia-300', bg: 'from-fuchsia-900/30 to-transparent', border: 'border-fuchsia-500/30' },
 ]
 
-// مكوّن الشكل العائم ثلاثي الأبعاد
-function FloatingShape({ className, delay = 0, size = 'md' }: { className: string, delay?: number, size?: string }) {
+// مكوّن الشكل العائم مع تأثير parallax ثلاثي الأبعاد
+function FloatingShape({
+  className,
+  delay = 0,
+  size = 'md',
+  parallaxX,
+  parallaxY,
+}: {
+  className: string
+  delay?: number
+  size?: string
+  parallaxX?: MotionValue<number>
+  parallaxY?: MotionValue<number>
+}) {
   const sizes: Record<string, string> = { sm: 'w-12 h-12', md: 'w-20 h-20', lg: 'w-32 h-32', xl: 'w-48 h-48' }
   const shouldReduceMotion = useReducedMotion()
 
@@ -56,11 +68,16 @@ function FloatingShape({ className, delay = 0, size = 'md' }: { className: strin
         rotateX: [0, 8, -5, 0],
         rotateY: [0, 12, -8, 0],
       }}
+      style={{
+        transformStyle: 'preserve-3d',
+        x: parallaxX,
+        y: parallaxY,
+      }}
       transition={shouldReduceMotion ? { duration: 0 } : { duration: 6 + delay, repeat: Infinity, ease: 'easeInOut', delay }}
-      style={{ transformStyle: 'preserve-3d' }}
     />
   )
 }
+
 
 export default function LandingHero() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -69,18 +86,44 @@ export default function LandingHero() {
   const heroY = useTransform(scrollYProgress, [0, 1], ['0%', '40%'])
   const heroOpacity = useTransform(scrollYProgress, [0, 0.6], [1, 0])
 
+  // Mouse tracking for 3D parallax
+  const rawMouseX = useMotionValue(0)
+  const rawMouseY = useMotionValue(0)
+  const springX = useSpring(rawMouseX, { stiffness: 40, damping: 20 })
+  const springY = useSpring(rawMouseY, { stiffness: 40, damping: 20 })
+
+  // Parallax transforms for each shape layer (different depths)
+  const px1 = useTransform(springX, [-1, 1], [-18, 18])
+  const py1 = useTransform(springY, [-1, 1], [-12, 12])
+  const px2 = useTransform(springX, [-1, 1], [12, -12])
+  const py2 = useTransform(springY, [-1, 1], [8, -8])
+  const px3 = useTransform(springX, [-1, 1], [-8, 8])
+  const py3 = useTransform(springY, [-1, 1], [-6, 6])
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    if (shouldReduceMotion) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    rawMouseX.set(((e.clientX - rect.left) / rect.width - 0.5) * 2)
+    rawMouseY.set(((e.clientY - rect.top) / rect.height - 0.5) * 2)
+  }, [shouldReduceMotion, rawMouseX, rawMouseY])
+
+  const handleMouseLeave = useCallback(() => {
+    rawMouseX.set(0)
+    rawMouseY.set(0)
+  }, [rawMouseX, rawMouseY])
+
   const stagger = {
     hidden: {},
     show: shouldReduceMotion ? {} : { transition: { staggerChildren: 0.12 } },
   }
   const fadeUp = {
     hidden: shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 30 },
-    show: { 
-      opacity: 1, 
-      y: 0, 
-      transition: shouldReduceMotion 
-        ? { duration: 0 } 
-        : { duration: 0.65, ease: [0.22, 1, 0.36, 1] as const } 
+    show: {
+      opacity: 1,
+      y: 0,
+      transition: shouldReduceMotion
+        ? { duration: 0 }
+        : { duration: 0.65, ease: [0.22, 1, 0.36, 1] as const }
     },
   }
 
@@ -91,6 +134,8 @@ export default function LandingHero() {
         ref={containerRef}
         className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden px-6"
         style={{ perspective: '1200px' }}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
       >
         {/* خلفية متوهجة */}
         <div className="absolute inset-0 pointer-events-none select-none">
@@ -99,12 +144,12 @@ export default function LandingHero() {
           <div className="absolute bottom-1/4 right-1/4 w-[300px] h-[300px] rounded-full bg-blue-500/6 blur-[80px]" />
         </div>
 
-        {/* أشكال عائمة ثلاثية الأبعاد */}
-        <FloatingShape className="top-16 left-10 bg-gradient-to-br from-cyan-400 to-cyan-600" delay={0} size="lg" />
-        <FloatingShape className="top-24 right-8 bg-gradient-to-br from-fuchsia-400 to-fuchsia-600 rounded-full" delay={1.5} size="md" />
-        <FloatingShape className="bottom-32 left-20 bg-gradient-to-br from-amber-400 to-orange-600" delay={3} size="sm" />
-        <FloatingShape className="bottom-20 right-12 bg-gradient-to-br from-emerald-400 to-cyan-600 rotate-45" delay={2} size="md" />
-        <FloatingShape className="top-1/2 left-4 bg-gradient-to-br from-blue-400 to-fuchsia-600 rounded-full" delay={4} size="sm" />
+        {/* أشكال عائمة ثلاثية الأبعاد مع Parallax */}
+        <FloatingShape className="top-16 left-10 bg-gradient-to-br from-cyan-400 to-cyan-600" delay={0} size="lg" parallaxX={px1} parallaxY={py1} />
+        <FloatingShape className="top-24 right-8 bg-gradient-to-br from-fuchsia-400 to-fuchsia-600 rounded-full" delay={1.5} size="md" parallaxX={px2} parallaxY={py2} />
+        <FloatingShape className="bottom-32 left-20 bg-gradient-to-br from-amber-400 to-orange-600" delay={3} size="sm" parallaxX={px3} parallaxY={py3} />
+        <FloatingShape className="bottom-20 right-12 bg-gradient-to-br from-emerald-400 to-cyan-600 rotate-45" delay={2} size="md" parallaxX={px1} parallaxY={py2} />
+        <FloatingShape className="top-1/2 left-4 bg-gradient-to-br from-blue-400 to-fuchsia-600 rounded-full" delay={4} size="sm" parallaxX={px2} parallaxY={py3} />
 
         {/* محتوى Hero */}
         <motion.div
@@ -141,7 +186,7 @@ export default function LandingHero() {
               وتنافس حقيقي مع زملائك على لوحة المتصدرين.
             </motion.p>
 
-            {/* أزرار الإجراء — طلاب فقط، لا يوجد رابط للأدمن */}
+            {/* أزرار الإجراء */}
             <motion.div variants={fadeUp} className="flex flex-wrap items-center justify-center gap-4">
               <Link
                 href="/auth/register"
@@ -179,7 +224,7 @@ export default function LandingHero() {
         {/* سهم التمرير */}
         <motion.div
           className="absolute bottom-8 left-1/2 -translate-x-1/2"
-          animate={{ y: [0, 8, 0] }}
+          animate={shouldReduceMotion ? {} : { y: [0, 8, 0] }}
           transition={{ duration: 2, repeat: Infinity }}
         >
           <div className="w-6 h-10 rounded-full border-2 border-zinc-700 flex items-start justify-center pt-2">

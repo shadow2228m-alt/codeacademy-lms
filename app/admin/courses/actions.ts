@@ -28,15 +28,35 @@ export async function deleteCourse(courseId: string) {
   return { success:true }
 }
 
-export async function createLesson(form: {course_id:string, title:string, video_url?:string, content_md?:string, order_index:number}) {
+export async function createLesson(form: {
+  course_id:string
+  title:string
+  video_url?:string
+  content_md?:string
+  order_index:number
+  attachments?: Array<{name:string; url:string; type:string}>
+}) {
   const { supabase } = await requireAdmin()
-  const { error } = await supabase.from('lessons').insert(form)
+  const { error } = await supabase.from('lessons').insert({
+    course_id: form.course_id,
+    title: form.title,
+    video_url: form.video_url,
+    content_md: form.content_md,
+    order_index: form.order_index,
+    attachments: form.attachments ?? [],
+  })
   if (error) throw new Error(error.message)
   revalidatePath('/admin/courses')
   return { success:true }
 }
 
-export async function updateLesson(lessonId: string, form: {title?:string, video_url?:string, content_md?:string, order_index?:number}) {
+export async function updateLesson(lessonId: string, form: {
+  title?:string
+  video_url?:string
+  content_md?:string
+  order_index?:number
+  attachments?: Array<{name:string; url:string; type:string}>
+}) {
   const { supabase } = await requireAdmin()
   const { error } = await supabase.from('lessons').update(form).eq('id', lessonId)
   if (error) throw new Error(error.message)

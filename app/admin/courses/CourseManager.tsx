@@ -1,9 +1,22 @@
 'use client'
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef } from 'react'
 import {
   createCourse, updateCourse, deleteCourse,
   createLesson, updateLesson, deleteLesson
 } from '@/app/admin/courses/actions'
+import { createClient } from '@/lib/supabase/client'
+
+type Attachment = { name: string; url: string; type: string }
+
+async function uploadPDF(file: File, lessonTitle: string): Promise<Attachment> {
+  const supabase = createClient()
+  const safeName = lessonTitle.trim().replace(/\s+/g, '-').slice(0, 40)
+  const path = `${safeName}-${Date.now()}.pdf`
+  const { error } = await supabase.storage.from('lesson-pdfs').upload(path, file, { upsert: true })
+  if (error) throw new Error('فشل رفع PDF: ' + error.message)
+  const { data: { publicUrl } } = supabase.storage.from('lesson-pdfs').getPublicUrl(path)
+  return { name: file.name, url: publicUrl, type: 'pdf' }
+}
 
 export default function CourseManager({ initialCourses }:{ initialCourses:any[] }){
   const [courses, setCourses] = useState(initialCourses)
@@ -61,8 +74,11 @@ function CourseCard({ course, onDeleted }:{course:any, onDeleted:(id:string)=>vo
   const [ltitle,setLtitle]=useState('')
   const [lvideo,setLvideo]=useState('')
   const [lcontent,setLcontent]=useState('')
+  const [lpdfFile,setLpdfFile]=useState<File|null>(null)
+  const [lpdfName,setLpdfName]=useState('')
   const [isPending,startTransition]=useTransition()
   const [msg,setMsg]=useState<string|null>(null)
+  const pdfRef=useRef<HTMLInputElement>(null)
 
   const [eTitle,setETitle]=useState(course.title)
   const [eSlug,setESlug]=useState(course.slug)
@@ -73,14 +89,19 @@ function CourseCard({ course, onDeleted }:{course:any, onDeleted:(id:string)=>vo
     setMsg(null)
     startTransition(async()=>{
       try {
+        let attachments: Attachment[] = []
+        if (lpdfFile) {
+          attachments = [await uploadPDF(lpdfFile, ltitle)]
+        }
         await createLesson({
           course_id: course.id,
           title: ltitle,
           video_url: lvideo || undefined,
           content_md: lcontent || undefined,
-          order_index: (course.lessons?.length || 0)
+          order_index: (course.lessons?.length || 0),
+          attachments,
         })
-        setLtitle(''); setLvideo(''); setLcontent('')
+        setLtitle(''); setLvideo(''); setLcontent(''); setLpdfFile(null); setLpdfName('')
         location.reload()
       } catch (e:any) {
         setMsg('❌ ' + e.message)
@@ -169,7 +190,7 @@ function CourseCard({ course, onDeleted }:{course:any, onDeleted:(id:string)=>vo
               {course.is_published ? 'منشور' : 'مسودة'}
             </span>
           </div>
-          <div className="text-xs text-zinc-400 mt-1">{course.slug} • {course.level === 'beginner' ? 'مبتدئ' : course.level === 'intermediate' ? 'متوسط' : course.level === 'advanced' ? 'متقدم' : course.level}</div>
+          <div className="text-xs text-zinc-400 mt-1">{course.slug} • {course.level === 'beginner' ? 'مبتدئ' : course.level === 'intermediate' ? 'متوسط' : 'متقدم'}</div>
           <div className="text-sm text-zinc-300 mt-2">{course.description}</div>
         </div>
         <div className="flex flex-col gap-1.5 items-end shrink-0">
@@ -191,8 +212,32 @@ function CourseCard({ course, onDeleted }:{course:any, onDeleted:(id:string)=>vo
             <input placeholder="عنوان الدرس" value={ltitle} onChange={e=>setLtitle(e.target.value)} className="bg-black/40 border border-zinc-800 rounded-lg px-3 py-2 text-sm"/>
             <input placeholder="رابط الفيديو (video_url)" value={lvideo} onChange={e=>setLvideo(e.target.value)} className="bg-black/40 border border-zinc-800 rounded-lg px-3 py-2 text-sm"/>
             <textarea placeholder="المحتوى بـ Markdown (content_md)" value={lcontent} onChange={e=>setLcontent(e.target.value)} className="md:col-span-2 bg-black/40 border border-zinc-800 rounded-lg px-3 py-2 text-sm" />
+            {/* حقل رفع PDF */}
+            <div className="md:col-span-2">
+              <div
+                className="flex items-center gap-3 border border-dashed border-zinc-700 rounded-lg px-3 py-2 cursor-pointer hover:border-cyan-500/50 transition text-sm"
+                onClick={() => pdfRef.current?.click()}
+              >
+                <span className="text-zinc-400">📎</span>
+                <span className="text-zinc-400">{lpdfName || 'رفع ملف PDF اختياري (حد أقصى 20MB)'}</span>
+                {lpdfName && <button className="text-red-400 text-xs mr-auto" onClick={e=>{e.stopPropagation();setLpdfFile(null);setLpdfName('')}}>✕</button>}
+              </div>
+              <input
+                ref={pdfRef}
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                onChange={e=>{
+                  const f=e.target.files?.[0]
+                  if (f && f.size <= 20*1024*1024) { setLpdfFile(f); setLpdfName(f.name) }
+                  else if (f) setMsg('❌ الملف أكبر من 20MB')
+                }}
+              />
+            </div>
           </div>
-          <button disabled={isPending||!ltitle} onClick={addLesson} className="px-4 py-2 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-cyan-200 text-sm disabled:opacity-50">+ إضافة درس</button>
+          <button disabled={isPending||!ltitle} onClick={addLesson} className="px-4 py-2 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-cyan-200 text-sm disabled:opacity-50">
+            {isPending ? 'جارٍ الإضافة…' : '+ إضافة درس'}
+          </button>
 
           <ul className="mt-4 space-y-2 text-sm">
             {(course.lessons||[]).map((l:any)=>(
@@ -210,14 +255,26 @@ function LessonRow({ lesson, onDelete }:{ lesson:any, onDelete:()=>void }){
   const [title,setTitle]=useState(lesson.title)
   const [video,setVideo]=useState(lesson.video_url||'')
   const [content,setContent]=useState(lesson.content_md||'')
+  const [pdfFile,setPdfFile]=useState<File|null>(null)
+  const [pdfName,setPdfName]=useState('')
   const [isPending,startTransition]=useTransition()
   const [msg,setMsg]=useState<string|null>(null)
+  const pdfRef=useRef<HTMLInputElement>(null)
 
   const save = () => {
     setMsg(null)
     startTransition(async()=>{
       try {
-        await updateLesson(lesson.id, { title, video_url: video || undefined, content_md: content || undefined })
+        let attachments: Attachment[] | undefined = undefined
+        if (pdfFile) {
+          attachments = [await uploadPDF(pdfFile, title)]
+        }
+        await updateLesson(lesson.id, {
+          title,
+          video_url: video || undefined,
+          content_md: content || undefined,
+          ...(attachments ? { attachments } : {}),
+        })
         setEditing(false)
         location.reload()
       } catch(e:any) {
@@ -232,6 +289,16 @@ function LessonRow({ lesson, onDelete }:{ lesson:any, onDelete:()=>void }){
         <input value={title} onChange={e=>setTitle(e.target.value)} className="w-full bg-black/40 border border-zinc-800 rounded-lg px-2 py-1.5 mb-2 text-sm"/>
         <input value={video} onChange={e=>setVideo(e.target.value)} placeholder="رابط الفيديو (video_url)" className="w-full bg-black/40 border border-zinc-800 rounded-lg px-2 py-1.5 mb-2 text-sm"/>
         <textarea value={content} onChange={e=>setContent(e.target.value)} placeholder="المحتوى بـ Markdown (content_md)" className="w-full bg-black/40 border border-zinc-800 rounded-lg px-2 py-1.5 mb-2 text-sm"/>
+        <div
+          className="flex items-center gap-2 border border-dashed border-zinc-700 rounded-lg px-2 py-1.5 mb-2 cursor-pointer hover:border-cyan-500/50 text-xs text-zinc-400"
+          onClick={() => pdfRef.current?.click()}
+        >
+          📎 {pdfName || 'استبدال PDF (اختياري)'}
+          {pdfName && <button className="text-red-400 mr-auto" onClick={e=>{e.stopPropagation();setPdfFile(null);setPdfName('')}}>✕</button>}
+        </div>
+        <input ref={pdfRef} type="file" accept="application/pdf" className="hidden"
+          onChange={e=>{const f=e.target.files?.[0]; if(f&&f.size<=20*1024*1024){setPdfFile(f);setPdfName(f.name)} else if(f) setMsg('❌ الملف أكبر من 20MB')}}
+        />
         <div className="flex gap-2">
           <button disabled={isPending} onClick={save} className="flex-1 py-1.5 rounded-lg bg-cyan-500 text-black text-xs font-bold disabled:opacity-50">{isPending?'يحفظ…':'حفظ'}</button>
           <button onClick={()=>setEditing(false)} className="flex-1 py-1.5 rounded-lg border border-zinc-700 text-xs">إلغاء</button>
@@ -241,9 +308,14 @@ function LessonRow({ lesson, onDelete }:{ lesson:any, onDelete:()=>void }){
     )
   }
 
+  const pdfs: Attachment[] = Array.isArray(lesson.attachments) ? lesson.attachments.filter((a:any) => a.type === 'pdf') : []
+
   return (
     <li className="flex justify-between items-center bg-black/30 px-3 py-2 rounded-lg border border-zinc-900">
-      <span>#{lesson.order_index} {lesson.title}</span>
+      <div>
+        <span>#{lesson.order_index} {lesson.title}</span>
+        {pdfs.length > 0 && <span className="text-[10px] text-amber-400 mr-2">📎 PDF</span>}
+      </div>
       <div className="flex items-center gap-2">
         <span className="text-zinc-500 text-xs">{lesson.video_url ? '🎥' : '📄'}</span>
         <button onClick={()=>setEditing(true)} className="text-[11px] px-2 py-1 rounded-md border border-zinc-700 text-zinc-300 hover:border-cyan-500/40">تعديل</button>
