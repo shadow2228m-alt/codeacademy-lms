@@ -18,7 +18,7 @@ export default function CodeSandbox({ value, onChange, onRun }:{
   return (
     <div className="border border-zinc-800 rounded-2xl overflow-hidden bg-[#0b0f1a]" dir="ltr">
       <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800 bg-black/30 text-xs text-zinc-400">
-        <span>Python IDE • CodeAcademy Sandbox</span>
+        <span>Python IDE • CodeAcademy Sandbox <span className="text-amber-400/80">(معاينة تجريبية)</span></span>
         <button onClick={()=>onRun?.(value)} className="px-3 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Run ▶</button>
       </div>
       <div className="flex">
@@ -38,7 +38,7 @@ def solve():
         />
       </div>
       <div className="border-t border-zinc-800 px-4 py-2 text-[11px] text-zinc-500">
-        Terminal output block • auto-format • line numbering enabled
+        محاكاة تشغيل تجريبية (ليست بيئة تنفيذ Python فعلية) • auto-format • line numbering enabled
       </div>
     </div>
   )

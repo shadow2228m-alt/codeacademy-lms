@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase/server'
 
 export default async function AdminStudentsPage(){
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: students } = await supabase.from('student_profiles')
     .select('*')
     .order('total_xp', { ascending: false })

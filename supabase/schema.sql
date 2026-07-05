@@ -94,6 +94,36 @@ CREATE POLICY "Admins all operations questions" ON public.questions FOR ALL USIN
 DROP POLICY IF EXISTS "Students view questions" ON public.questions;
 CREATE POLICY "Students view questions" ON public.questions FOR SELECT USING (true);
 
+-- SECURITY: RLS filters rows, not columns. Without the REVOKE below, any
+-- authenticated student could call supabase.from('questions').select('*')
+-- directly from the browser console and read correct_option for every
+-- multiple-choice question before answering.
+--
+-- Grading (submitAndGradeQuiz) can no longer read correct_option via a plain
+-- authenticated-role select once this column is revoked, so it goes through
+-- the SECURITY DEFINER RPC below instead, which bypasses the REVOKE. That RPC
+-- only returns rows once the calling student's own attempt for that quiz is
+-- no longer in_progress (submitted or graded) — otherwise a student could
+-- call the RPC directly mid-exam and defeat the whole protection.
+CREATE OR REPLACE FUNCTION public.get_correct_options_for_grading(p_quiz_id UUID)
+RETURNS TABLE(id UUID, correct_option TEXT)
+LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.quiz_attempts
+    WHERE quiz_id = p_quiz_id
+      AND student_id = auth.uid()
+      AND status IN ('submitted', 'graded')
+  ) THEN
+    RAISE EXCEPTION 'Not authorized: no submitted attempt found for this quiz';
+  END IF;
+
+  RETURN QUERY SELECT q.id, q.correct_option FROM public.questions q WHERE q.quiz_id = p_quiz_id;
+END;
+$$;
+
+REVOKE SELECT (correct_option) ON public.questions FROM anon, authenticated;
+
 DROP POLICY IF EXISTS "Students insert attempts" ON public.quiz_attempts;
 CREATE POLICY "Students insert attempts" ON public.quiz_attempts FOR INSERT WITH CHECK (auth.uid() = student_id);
 
@@ -110,11 +140,83 @@ CREATE POLICY "Students update own answers" ON public.student_answers FOR ALL US
     EXISTS (SELECT 1 FROM public.quiz_attempts WHERE id = attempt_id AND student_id = auth.uid())
 );
 
+-- SECURITY: the policy above allows a student to INSERT/UPDATE their own
+-- student_answers rows for auto-save, which is required (upsertStudentAnswer
+-- writes selected_option/written_code from the browser). But RLS has no
+-- column granularity, so without this trigger a student could also call
+-- supabase.from('student_answers').update({ is_correct: true, score_awarded: 999 })
+-- directly and self-grade. Only submitAndGradeQuiz (server-side, after
+-- setting the bypass flag) may set is_correct/score_awarded.
+CREATE OR REPLACE FUNCTION public.protect_student_answer_grading()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF (auth.jwt() ->> 'role') = 'admin'
+     OR current_setting('app.bypass_profile_stats_guard', true) = 'on' THEN
+    RETURN NEW;
+  END IF;
+  NEW.is_correct := OLD.is_correct;
+  NEW.score_awarded := OLD.score_awarded;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_protect_student_answer_grading ON public.student_answers;
+CREATE TRIGGER trg_protect_student_answer_grading
+  BEFORE UPDATE ON public.student_answers
+  FOR EACH ROW EXECUTE FUNCTION public.protect_student_answer_grading();
+
+-- Used by submitAndGradeQuiz to actually write is_correct/score_awarded.
+-- Runs as SECURITY DEFINER and sets the same bypass flag the trigger checks,
+-- but only after confirming the caller owns the attempt this answer belongs
+-- to — otherwise a student could grade someone else's answers too.
+CREATE OR REPLACE FUNCTION public.grade_student_answer(
+  p_attempt_id UUID, p_question_id UUID, p_is_correct BOOLEAN, p_score_awarded INTEGER
+) RETURNS VOID AS $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.quiz_attempts WHERE id = p_attempt_id AND student_id = auth.uid()
+  ) AND (auth.jwt() ->> 'role') <> 'admin' THEN
+    RAISE EXCEPTION 'Not authorized to grade this attempt';
+  END IF;
+
+  PERFORM set_config('app.bypass_profile_stats_guard', 'on', true);
+  UPDATE public.student_answers
+    SET is_correct = p_is_correct, score_awarded = p_score_awarded
+    WHERE attempt_id = p_attempt_id AND question_id = p_question_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 DROP POLICY IF EXISTS "profiles_select_all" ON public.student_profiles;
 CREATE POLICY "profiles_select_all" ON public.student_profiles FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "profiles_update_own" ON public.student_profiles;
 CREATE POLICY "profiles_update_own" ON public.student_profiles FOR UPDATE USING (auth.uid() = user_id);
+
+-- SECURITY: prevent students from editing their own XP/streak/scores via direct client update.
+-- Only full_name / avatar_url may be changed by the owner; admins (service role / server actions
+-- using elevated context) bypass this via SECURITY DEFINER functions like update_student_xp_and_streak.
+CREATE OR REPLACE FUNCTION public.protect_student_profile_stats()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Allow trusted server-side paths (admin JWT, or an internal SECURITY DEFINER
+  -- function like update_student_xp_and_streak setting this session flag) through.
+  IF (auth.jwt() ->> 'role') = 'admin'
+     OR current_setting('app.bypass_profile_stats_guard', true) = 'on' THEN
+    RETURN NEW;
+  END IF;
+  NEW.total_xp := OLD.total_xp;
+  NEW.exams_passed := OLD.exams_passed;
+  NEW.accumulated_quiz_scores := OLD.accumulated_quiz_scores;
+  NEW.active_daily_streak := OLD.active_daily_streak;
+  NEW.last_submission_date := OLD.last_submission_date;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_protect_student_profile_stats ON public.student_profiles;
+CREATE TRIGGER trg_protect_student_profile_stats
+  BEFORE UPDATE ON public.student_profiles
+  FOR EACH ROW EXECUTE FUNCTION public.protect_student_profile_stats();
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_questions_quiz_id ON public.questions(quiz_id);
@@ -171,6 +273,7 @@ BEGIN
     v_streak := GREATEST(v_profile.active_daily_streak,1);
   END IF;
 
+  PERFORM set_config('app.bypass_profile_stats_guard', 'on', true);
   UPDATE public.student_profiles SET
     accumulated_quiz_scores = accumulated_quiz_scores + p_score,
     exams_passed = exams_passed + CASE WHEN v_passed THEN 1 ELSE 0 END,

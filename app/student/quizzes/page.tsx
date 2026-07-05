@@ -3,10 +3,12 @@ import { createClient } from '@/lib/supabase/server'
 import ExamArena from '@/components/ExamArena'
 import { startQuizAttempt, getQuizWithQuestions, getMyAttempt } from './actions'
 import Link from 'next/link'
+import RetryGradingButton from './RetryGradingButton'
 
-export default async function StudentQuizzesPage({ searchParams }:{ searchParams?: { quiz?: string }}) {
-  const supabase = createClient()
-  const quizId = searchParams?.quiz
+export default async function StudentQuizzesPage({ searchParams }:{ searchParams?: Promise<{ quiz?: string }>}) {
+  const supabase = await createClient()
+  const sp = await searchParams
+  const quizId = sp?.quiz
 
   const { data: quizzes } = await supabase.from('quizzes').select('*').order('created_at', { ascending: false })
 
@@ -29,10 +31,46 @@ export default async function StudentQuizzesPage({ searchParams }:{ searchParams
   }
 
   const { quiz, questions } = await getQuizWithQuestions(quizId)
-  if (!quiz) return <div>Quiz not found</div>
+  if (!quiz) return <div className="max-w-6xl mx-auto px-6 py-10 text-zinc-400">الاختبار غير موجود.</div>
+
   let attempt = await getMyAttempt(quizId)
+
+  // لو المحاولة اتصححت بالفعل، اعرض النتيجة ولا تبدأ محاولة جديدة تلقائياً
+  if (attempt && attempt.status === 'graded') {
+    return (
+      <div className="max-w-6xl mx-auto px-6 py-8">
+        <div className="flex items-center justify-between mb-6">
+          <Link href="/student/quizzes" className="text-cyan-400 text-sm">← العودة للقائمة</Link>
+        </div>
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-6">
+          <div className="text-emerald-300 font-bold text-lg mb-2">لقد أتممت هذا الاختبار من قبل ✅</div>
+          <div className="text-3xl font-black">{attempt.score_achieved} / {quiz.total_score}</div>
+          {attempt.ai_feedback && (
+            <pre className="mt-4 whitespace-pre-wrap text-sm text-zinc-300 leading-7" dir="rtl">{attempt.ai_feedback}</pre>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // المحاولة اتسلمت لكن التصحيح لم يكتمل بعد (تصحيح جارٍ أو انقطع لسبب ما).
+  // لا تبدأ محاولة جديدة فوقها أبداً — بدلاً من ذلك اعرض حالة انتظار واضحة.
+  if (attempt && attempt.status === 'submitted') {
+    return (
+      <div className="max-w-6xl mx-auto px-6 py-8">
+        <div className="flex items-center justify-between mb-6">
+          <Link href="/student/quizzes" className="text-cyan-400 text-sm">← العودة للقائمة</Link>
+        </div>
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-6">
+          <div className="text-amber-300 font-bold text-lg mb-2">جارٍ تصحيح إجاباتك…</div>
+          <p className="text-sm text-zinc-400">تم تسليم محاولتك بنجاح. إذا استمر هذا الأمر لفترة طويلة، اضغط الزر أدناه لإعادة محاولة التصحيح.</p>
+          <RetryGradingButton attemptId={attempt.id} />
+        </div>
+      </div>
+    )
+  }
+
   if (!attempt || attempt.status !== 'in_progress') {
-    // auto start if not active
     attempt = await startQuizAttempt(quizId)
   }
 

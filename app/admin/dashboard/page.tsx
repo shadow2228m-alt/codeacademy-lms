@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 
 export default async function AdminDashboard(){
-  const supabase = createClient()
+  const supabase = await createClient()
   const [{ count: quizzes }, { count: questions }, { count: attempts }, { data: top }] = await Promise.all([
     supabase.from('quizzes').select('*', { count:'exact', head:true }),
     supabase.from('questions').select('*', { count:'exact', head:true }),

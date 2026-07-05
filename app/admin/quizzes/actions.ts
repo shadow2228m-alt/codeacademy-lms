@@ -1,5 +1,5 @@
 'use server'
-import { requireAdmin, createClient } from '@/lib/supabase/server'
+import { requireAdmin } from '@/lib/supabase/server'
 import { CreateQuizInput, QuizBuilderQuestionInput } from '@/lib/types'
 import { revalidatePath } from 'next/cache'
 
@@ -52,9 +52,18 @@ export async function createQuizTransaction(input: CreateQuizInput) {
 }
 
 export async function listQuizzesAdmin() {
-  const supabase = createClient()
+  const { supabase } = await requireAdmin()
   const { data } = await supabase.from('quizzes').select('*, questions(count)').order('created_at', { ascending: false })
   return data ?? []
+}
+
+export async function updateQuizMeta(quizId: string, form: { title?: string, duration_minutes?: number, total_score?: number }) {
+  const { supabase } = await requireAdmin()
+  const { error } = await supabase.from('quizzes').update(form).eq('id', quizId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/quizzes')
+  revalidatePath('/student/quizzes')
+  return { success: true }
 }
 
 export async function deleteQuizAdmin(quizId: string) {
@@ -62,5 +71,6 @@ export async function deleteQuizAdmin(quizId: string) {
   const { error } = await supabase.from('quizzes').delete().eq('id', quizId)
   if (error) throw new Error(error.message)
   revalidatePath('/admin/quizzes')
+  revalidatePath('/student/quizzes')
   return { success: true }
 }

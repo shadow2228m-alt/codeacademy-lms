@@ -5,7 +5,7 @@ import { StudentProfile } from '@/lib/types'
 
 // SPECIFICATION 3: COMPETITIVE STUDENT LEADERBOARD & XP SCORE ARCHITECTURE
 export async function getLeaderboard(limit = 50): Promise<Array<StudentProfile & { rank: number; computed_xp: number }>> {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data, error } = await supabase
     .from('student_profiles')
@@ -29,7 +29,7 @@ export async function getLeaderboard(limit = 50): Promise<Array<StudentProfile &
 }
 
 export async function getMyStats(userId?: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
   if (!userId) {
     const { data: { user } } = await supabase.auth.getUser()
     userId = user?.id

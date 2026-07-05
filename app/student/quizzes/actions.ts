@@ -82,12 +82,22 @@ export async function submitAndGradeQuiz(attempt_id: string) {
 
   if (attempt.status === 'graded') return attempt
 
+  // Mark as submitted first: the grading RPC below only releases
+  // correct_option once this attempt is no longer in_progress.
+  await supabase.from('quiz_attempts').update({ status: 'submitted' }).eq('id', attempt_id)
+
   // جلب الأسئلة والإجابات
   const { data: questions } = await supabase
     .from('questions')
     .select('*')
     .eq('quiz_id', attempt.quiz_id)
     .order('order_index')
+
+  // correct_option is column-REVOKE'd from direct client/authenticated select
+  // (see schema.sql) to prevent students reading answers via console/network
+  // inspection. Grading fetches it separately through a SECURITY DEFINER RPC.
+  const { data: correctOptions } = await supabase.rpc('get_correct_options_for_grading', { p_quiz_id: attempt.quiz_id })
+  const correctMap = new Map((correctOptions ?? []).map((r: any) => [r.id, r.correct_option]))
 
   const { data: answers } = await supabase
     .from('student_answers')
@@ -101,15 +111,16 @@ export async function submitAndGradeQuiz(attempt_id: string) {
 
   for (const q of questions ?? []) {
     const ans = answerMap.get(q.id)
+    const correctOption = correctMap.get(q.id)
     let is_correct = false
     let score_awarded = 0
     let critique = ''
 
     if (q.q_type === 'multiple_choice') {
       // Deterministic Pass
-      is_correct = !!ans?.selected_option && ans.selected_option === q.correct_option
+      is_correct = !!ans?.selected_option && ans.selected_option === correctOption
       score_awarded = is_correct ? q.max_points : 0
-      critique = is_correct ? 'إجابة صحيحة.' : `الإجابة الصحيحة هي ${q.correct_option}.`
+      critique = is_correct ? 'إجابة صحيحة.' : `الإجابة الصحيحة هي ${correctOption}.`
     } else {
       // AI-Powered Pass
       const code = ans?.written_code?.trim() || ''
@@ -139,11 +150,14 @@ export async function submitAndGradeQuiz(attempt_id: string) {
     totalScore += score_awarded
     aiCritiques.push(`س${q.order_index+1}: ${critique}`)
 
-    // update answer row
-    await supabase.from('student_answers').update({
-      is_correct,
-      score_awarded
-    }).eq('attempt_id', attempt_id).eq('question_id', q.id)
+    // update answer row (direct update is blocked by trg_protect_student_answer_grading;
+    // this RPC sets the bypass flag after verifying attempt ownership)
+    await supabase.rpc('grade_student_answer', {
+      p_attempt_id: attempt_id,
+      p_question_id: q.id,
+      p_is_correct: is_correct,
+      p_score_awarded: score_awarded
+    })
   }
 
   const ai_feedback = aiCritiques.join('\n')
@@ -177,10 +191,15 @@ export async function submitAndGradeQuiz(attempt_id: string) {
 }
 
 export async function getQuizWithQuestions(quizId: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: quiz } = await supabase.from('quizzes').select('*').eq('id', quizId).single()
   const { data: questions } = await supabase.from('questions').select('*').eq('quiz_id', quizId).order('order_index')
-  return { quiz, questions: questions ?? [] }
+
+  // SECURITY: never send correct_option to the student's browser. It would be
+  // visible in the RSC payload / network tab before the student even answers.
+  const safeQuestions = (questions ?? []).map(({ correct_option, ...rest }) => rest)
+
+  return { quiz, questions: safeQuestions }
 }
 
 export async function getMyAttempt(quizId: string) {

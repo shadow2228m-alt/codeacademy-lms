@@ -15,6 +15,9 @@ export default function RegisterPage(){
 
   const submit=()=>{
     setErr(null)
+    if (!fullName.trim()) { setErr('من فضلك أدخل الاسم الكامل'); return }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setErr('البريد الإلكتروني غير صالح'); return }
+    if (password.length < 6) { setErr('كلمة المرور يجب أن تكون 6 أحرف على الأقل'); return }
     startTransition(async()=>{
       const supabase=createClient()
       const { data, error } = await supabase.auth.signUp({

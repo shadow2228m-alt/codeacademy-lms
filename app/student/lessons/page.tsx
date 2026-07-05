@@ -6,10 +6,11 @@ export const metadata = { title: 'CodeAcademy | Lessons Arena' }
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-export default async function LessonsPage({ searchParams }:{ searchParams?: { course?: string, lesson?: string }}) {
-  const supabase = createClient()
-  const courseSlug = searchParams?.course
-  const lessonId = searchParams?.lesson
+export default async function LessonsPage({ searchParams }:{ searchParams?: Promise<{ course?: string, lesson?: string }>}) {
+  const supabase = await createClient()
+  const sp = await searchParams
+  const courseSlug = sp?.course
+  const lessonId = sp?.lesson
   const { data: courses } = await supabase.from('courses').select('*').eq('is_published', true).order('created_at')
   if (!courseSlug) {
     return (

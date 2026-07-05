@@ -4,7 +4,7 @@
 ### Stack
 - Next.js 16 (App Router, Server Actions, force-dynamic)
 - Supabase PostgreSQL + Auth + RLS
-- Gemini 1.5-flash AI Grader
+- Gemini 2.5-flash AI Grader
 - Tailwind RTL Neon Cyber UI
 - TypeScript strict
 
@@ -25,6 +25,8 @@ NEXT_PUBLIC_APP_URL=
 SQL Editor → run in order:
 1. `supabase/schema.sql`  (full)
 2. `supabase/seed_quizzes.sql`
+
+> ⚠️ **إذا كان المشروع منشوراً بالفعل على Supabase:** أعد تشغيل `supabase/schema.sql` كاملاً بعد أي تحديث لهذا الملف. هذا **ضروري وليس اختيارياً** — النسخة الحالية تضيف حماية أمنية جوهرية (تريجرز تمنع تلاعب الطلاب بـ XP ودرجات الاختبارات مباشرة من متصفحهم، وتمنع تسريب الإجابات الصحيحة عبر console). الملف يستخدم `CREATE OR REPLACE` و`DROP POLICY/TRIGGER IF EXISTS` فقط، فتشغيله مرة أخرى آمن تماماً ولن يكرر البيانات أو يحذف شيئاً موجوداً.
 
 Auth → Users → Create:
 - admin@codeacademy.test / Admin123!

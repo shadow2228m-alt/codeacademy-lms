@@ -6,12 +6,40 @@ import { createClient } from '@/lib/supabase/server'
 export const metadata = { title: 'CodeAcademy | Dashboard' }
 
 export default async function StudentDashboardPage() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const [board, my] = await Promise.all([
-    getLeaderboard(30),
-    user ? getMyStats(user.id) : Promise.resolve(null)
-  ])
+
+  let board: Awaited<ReturnType<typeof getLeaderboard>> = []
+  let my: Awaited<ReturnType<typeof getMyStats>> = null
+  let loadError: string | null = null
+
+  try {
+    const [b, m] = await Promise.all([
+      getLeaderboard(30),
+      user ? getMyStats(user.id) : Promise.resolve(null)
+    ])
+    board = b
+    my = m
+  } catch (e: any) {
+    loadError = e?.message || 'تعذر تحميل بيانات لوحة التحكم حالياً.'
+  }
+
+  if (loadError) {
+    return (
+      <div className="max-w-6xl mx-auto px-6 py-10">
+        <header className="mb-8">
+          <h1 className="text-[34px] font-black tracking-tight text-white">
+            لوحة التحكم <span className="text-cyan-400">التنافسية</span>
+          </h1>
+        </header>
+        <div className="rounded-2xl border border-red-500/30 bg-red-950/20 p-6 text-red-300">
+          <div className="font-bold mb-1">تعذر تحميل البيانات</div>
+          <div className="text-sm text-red-400/90">{loadError}</div>
+          <div className="text-xs text-zinc-500 mt-3">حاول تحديث الصفحة، أو تواصل مع الدعم إذا استمرت المشكلة.</div>
+        </div>
+      </div>
+    )
+  }
 
   return (
       <div className="max-w-6xl mx-auto px-6 py-10">
